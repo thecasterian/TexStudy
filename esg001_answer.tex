@@ -1,0 +1,32 @@
+\documentclass[a4paper]{oblivoir}
+
+%% Expl
+
+\ExplSyntaxOn
+
+\NewDocumentCommand \hellocmdit { m }
+{
+    Hello, ~ \textit { #1 } !
+}
+
+\cs_new:Npn \first_upper:n #1
+{
+    \str_upper_case:f { \tl_head:n { #1 } } \tl_tail:n { #1 }
+}
+
+\NewDocumentCommand \hellocmdup { m }
+{
+    Hello, ~ \first_upper:n { #1 } !
+}
+
+\ExplSyntaxOff
+
+%% Document
+
+\begin{document}
+
+\hellocmdit {world}
+
+\hellocmdup {world}
+
+\end{document}
