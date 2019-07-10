@@ -1,0 +1,165 @@
+\documentclass[a4paper]{oblivoir}
+
+\usepackage{xcolor}
+
+%% Expl
+
+\ExplSyntaxOn
+
+%% foobox
+
+\cs_new:Npn \foobox_helper_mapfunc:n #1
+{
+    \fcolorbox { red } { red } {
+        \textcolor { white } { #1 }
+    }
+    \hspace { 1pt }
+}
+
+\cs_new:Npn \foobox_helper:n #1
+{
+    \tl_set:Nn \l_tmpa_tl { #1 }
+    \tl_map_function:NN \l_tmpa_tl \foobox_helper_mapfunc:n
+}
+
+\NewDocumentCommand \foobox { m }
+{
+    \foobox_helper:n { #1 }
+}
+
+%% barbox
+
+\cs_new:Npn \barbox_helper_mapfunc:n #1
+{
+    \int_incr:N \l_tmpa_int
+    \fcolorbox { red } { red } {
+        \textcolor { white } { #1 }
+    }
+    \hspace { 1pt }
+}
+
+\cs_new:Npn \barbox_helper:n #1
+{
+    \int_zero:N \l_tmpa_int
+    \tl_set:Nn \l_tmpa_tl { #1 }
+    \tl_map_function:NN \l_tmpa_tl \barbox_helper_mapfunc:n
+    ~ ( \int_use:N \l_tmpa_int )
+}
+
+\NewDocumentCommand \barbox { m }
+{
+    \barbox_helper:n { #1 }
+}
+
+%% oddbarbox
+
+\cs_new:Npn \oddbarbox_helper_mapfunc:n #1
+{
+    \int_incr:N \l_tmpa_int
+    \int_if_odd:nTF { \l_tmpa_int }
+    {
+        \fcolorbox { red } { red } {
+            \textcolor { white } { #1 }
+        }
+    }
+    {
+        #1
+    }
+    \hspace { 1pt }
+}
+
+\cs_new:Npn \oddbarbox_helper:n #1
+{
+    \int_zero:N \l_tmpa_int
+    \tl_set:Nn \l_tmpa_tl { #1 }
+    \tl_map_function:NN \l_tmpa_tl \oddbarbox_helper_mapfunc:n
+    ~ ( \int_use:N \l_tmpa_int )
+}
+
+\NewDocumentCommand \oddbarbox { m }
+{
+    \oddbarbox_helper:n { #1 }
+}
+
+%% acmd
+
+\cs_new:Npn \acmd_helper_mapfunc:n #1
+{
+    \int_incr:N \l_tmpa_int
+    \int_compare:nT { \l_tmpa_int <= \l_tmpb_int }
+    {
+        #1
+    }
+}
+
+\int_new:N \l_length_int
+
+\cs_new:Npn \acmd_helper:nn #1#2
+{
+    \int_zero:N \l_tmpa_int
+    \int_set:Nn \l_tmpb_int { #1 }
+    \tl_set:Nn \l_tmpa_tl { #2 }
+
+    \int_set:Nn \l_length_int { \tl_count:N \l_tmpa_tl }
+
+    \int_compare:nT { \l_length_int < \l_tmpb_int }
+    {
+        \prg_replicate:nn { \l_tmpb_int - \l_length_int } { \_ }
+    }
+    \tl_map_function:NN \l_tmpa_tl \acmd_helper_mapfunc:n
+}
+
+\NewDocumentCommand \acmd { mm }
+{
+    \acmd_helper:nn { #1 } { #2 }
+}
+
+%% myslicing
+
+\cs_new:Npn \myslicing_helper_mapfunc:n #1
+{
+    \int_incr:N \l_tmpa_int
+    \int_compare:nT { \l_start_int <= \l_tmpa_int }
+    {
+        \int_compare:nT { \l_tmpa_int <= \l_end_int }
+        {
+            #1
+        }
+    }
+}
+
+\int_new:N \l_start_int
+\int_new:N \l_end_int
+
+\cs_new:Npn \myslicing_helper:nnn #1#2#3
+{
+    \tl_set:Nn \l_tmpa_tl { #1 }
+    \int_set:Nn \l_start_int { #2 }
+    \int_set:Nn \l_end_int { #3 }
+    \int_zero:N \l_tmpa_int
+
+    \tl_map_function:NN \l_tmpa_tl \myslicing_helper_mapfunc:n
+}
+
+\NewDocumentCommand \myslicing {mmm}
+{
+    \myslicing_helper:nnn { #1 } { #2 } { #3 }
+}
+
+\ExplSyntaxOff
+
+%% Document
+
+\begin{document}
+    
+\foobox{world}
+
+\barbox{world}
+
+\oddbarbox{world}
+
+\acmd{5}{beautiful} \quad \acmd{5}{abc}
+
+\myslicing{Hello world}{3}{7}
+
+\end{document}
