@@ -1,0 +1,152 @@
+\documentclass[a4paper, oneside]{oblivoir}
+
+\usepackage{xparse}
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{width=0.9\linewidth,compat=1.9}
+
+\ExplSyntaxOn
+
+\cs_generate_variant:Nn \clist_item:nn { f }
+
+\clist_new:N \g_ty_clist
+
+\fp_new:N \l_h_fp
+\fp_new:N \l_cur_t_fp
+\fp_new:N \l_cur_y_fp
+
+\fp_new:N \l_kone_fp
+\fp_new:N \l_ktwo_fp
+\fp_new:N \l_kthree_fp
+\fp_new:N \l_kfour_fp
+
+\tl_new:N \g_coord_tl
+
+% dydt(t, y)
+\cs_new:Npn \dydt:nn #1 #2
+{
+    \fp_eval:n { #2 * cos( #1 + sqrt(1 + #2) ) }
+}
+
+\cs_new:Npn \put_ty:nnn #1 #2 #3
+{
+    \clist_gclear:N \g_ty_clist
+    \clist_gput_right:Nx \g_ty_clist { #2 }
+    \clist_gput_right:Nx \g_ty_clist { #3 }
+    \seq_gput_right:cV { g_res_#1_seq } \g_ty_clist
+}
+
+% RK(name, dydt, t0, tf, y0, nsteps)
+\cs_new:Npn \RK:nNnnnn #1 #2 #3 #4 #5 #6
+{
+    % clear result seq
+    \seq_gclear_new:c { g_res_#1_seq }
+
+    % calculate time step
+    \fp_set:Nn \l_h_fp { (#4 - #3) / #6 }
+
+    % current t
+    \fp_set:Nn \l_cur_t_fp { #3 }
+    % current y
+    \fp_set:Nn \l_cur_y_fp { #5 }
+
+    % put t0 and y0 into result seq
+    \put_ty:nnn { #1 } { \l_cur_t_fp } { \l_cur_y_fp }
+
+    \int_zero:N \l_tmpa_int
+    \int_while_do:nn { \l_tmpa_int < #6 }
+    {
+        % calculate k1
+        \fp_set:Nn \l_kone_fp { #2 {\l_cur_t_fp} {\l_cur_y_fp} }
+
+        % calculate k2
+        \fp_set:Nn \l_tmpa_fp { \l_cur_t_fp + \l_h_fp / 2 }
+        \fp_set:Nn \l_tmpb_fp { \l_cur_y_fp + \l_h_fp * \l_kone_fp / 2 }
+        \fp_set:Nn \l_ktwo_fp { #2 {\l_tmpa_fp} {\l_tmpb_fp} }
+
+        % calculate k3
+        \fp_set:Nn \l_tmpb_fp { \l_cur_y_fp + \l_h_fp * \l_ktwo_fp / 2 }
+        \fp_set:Nn \l_kthree_fp { #2 {\l_tmpa_fp} {\l_tmpb_fp} }
+
+        % calculate k4
+        \fp_set:Nn \l_tmpa_fp { \l_cur_t_fp + \l_h_fp }
+        \fp_set:Nn \l_tmpb_fp { \l_cur_y_fp + \l_h_fp * \l_kthree_fp }
+        \fp_set:Nn \l_kfour_fp { #2 {\l_tmpa_fp} {\l_tmpb_fp} }
+
+        % calculate next y
+        \fp_add:Nn \l_cur_y_fp { \l_h_fp * (\l_kone_fp + 2*\l_ktwo_fp + 2*\l_kthree_fp + \l_kfour_fp) / 6 }
+        % calculate next t
+        \fp_set:Nn \l_cur_t_fp { #3 + (#4 - #3) * (\l_tmpa_int + 1) / #6 }
+
+        % put t and y into result seq
+        \put_ty:nnn { #1 } { \l_cur_t_fp } { \l_cur_y_fp }
+
+        % increment step
+        \int_incr:N \l_tmpa_int
+    }
+}
+
+\cs_new:Npn \get_coord_tl:n #1
+{
+    \tl_gclear:N \g_coord_tl
+    \seq_map_inline:cn { g_res_#1_seq } {
+        \tl_gput_right:Nx \g_coord_tl {
+            (
+            \fp_eval:n { \clist_item:fn { ##1 } { 1 } } ,
+            \fp_eval:n { \clist_item:fn { ##1 } { 2 } }
+            )
+        }
+    }
+}
+
+\cs_new:Npn \plot_RK_res:nnn #1 #2 #3
+{
+    \fp_set:Nn \l_tmpa_fp { \clist_item:fn { \seq_item:cn { g_res_#1_seq } { 1 } } { 1 } }
+    \fp_set:Nn \l_tmpb_fp { \clist_item:fn { \seq_item:cn { g_res_#1_seq } { -1 } } { 1 } }
+    \get_coord_tl:n { #1 }
+
+    \begin{tikzpicture}
+        \begin{axis} [
+            xmin = \fp_eval:n { \l_tmpa_fp },
+            xmax = \fp_eval:n { \l_tmpb_fp },
+            #2
+        ]
+            \addplot [
+                smooth,
+                #3
+            ]
+            coordinates {
+                \g_coord_tl
+            };
+        \end{axis}
+    \end{tikzpicture}
+}
+
+\NewDocumentCommand \RK { m m O{0} m m O{200} }
+{
+    \RK:nNnnnn {#1} {#2} {#3} {#4} {#5} {#6}
+}
+
+\NewDocumentCommand \plotRKres { m O{} O{} }
+{
+    \plot_RK_res:nnn {#1} {#2} {#3}
+}
+
+\ExplSyntaxOff
+
+\begin{document}
+
+\ExplSyntaxOn
+
+\RK{test}{\dydt:nn}{30}{1}
+
+\plotRKres{test}[
+    title={$y'(t)=y(t)\cos\left(t+\sqrt{1+y(t)}\right),\ y(0)=1$},
+    xlabel=$t$,
+    ylabel=$y(t)$
+][color=red]
+
+\ExplSyntaxOff
+
+\end{document}
