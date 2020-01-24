@@ -1,0 +1,332 @@
+\documentclass[a4paper, oneside]{oblivoir}
+
+\usepackage{xparse}
+
+\ExplSyntaxOn
+
+% A: 3 x 5 array
+\fparray_new:Nn \g_A_fparray { 15 }
+% B: 5 x 4 array
+\fparray_new:Nn \g_B_fparray { 20 }
+% C: 3 x 4 array
+\fparray_new:Nn \g_C_fparray { 12 }
+
+% D: 4 x 4 array
+\fparray_new:Nn \g_D_fparray { 16 }
+% E: 4 x 1 array
+\fparray_new:Nn \g_E_fparray { 4 }
+% F: 4 x 5 array
+\fparray_new:Nn \g_F_fparray { 20 }
+% x: 4 x 1 array
+\fparray_new:Nn \g_x_fparray { 4 }
+
+\int_new:N \l_tmpc_int
+\int_new:N \l_tmpd_int
+\int_new:N \l_tmpe_int
+\fp_new:N \l_tmpc_fp
+
+% randfill:N {A}
+% randomly fill matrix with -1, 0, or 1
+% A: matrix to fill
+\cs_new:Npn \randfill:N #1
+{
+    \int_set:Nn \l_tmpa_int { \fparray_count:N #1 }
+    \int_zero:N \l_tmpb_int
+    \int_while_do:nn { \l_tmpb_int < \l_tmpa_int }
+    {
+        \fparray_gset:Nnn #1 { \l_tmpb_int + 1 } { \fp_eval:n { randint(-1, 1) } }
+        \int_incr:N \l_tmpb_int
+    }
+}
+
+% \fparray_from_clist:Nn {A}{B}
+% construct fparray from clist
+% A: fparray
+% B: clist
+\cs_new:Npn \fparray_from_clist:Nn #1 #2
+{
+    \int_set:Nn \l_tmpa_int { 1 }
+    \clist_map_inline:nn { #2 }
+    {
+        \fparray_gset:Nnn #1 { \l_tmpa_int } { ##1 }
+        \int_incr:N \l_tmpa_int
+    }
+}
+
+% \fparray_elemswap:Nnn {A}{i}{j}
+% swap two elements of fparray
+% A: fparrray
+% i, j: indices of elements
+\cs_new:Npn \fparray_elemswap:Nnn #1 #2 #3
+{
+    \fp_set:Nn \l_tmpa_fp { \fparray_item:Nn #1 { #2 } }
+    \fp_set:Nn \l_tmpb_fp { \fparray_item:Nn #1 { #3 } }
+    \fparray_gset:Nnn #1 { #2 } { \l_tmpb_fp }
+    \fparray_gset:Nnn #1 { #3 } { \l_tmpa_fp }
+}
+
+% \mathstack {A}{B}{C}{n}{m}{r}
+% concatenate two matrices horizontaly
+% A: left matrix (n x m)
+% B: right matrix (n x r)
+% C: output matrix; C = [A|B] (n x (m+r))
+\cs_new:Npn \mathstack:NNNnnn #1 #2 #3 #4 #5 #6
+{
+    \int_zero:N \l_tmpa_int
+    \int_while_do:nn { \l_tmpa_int < #4 }
+    {
+        % C(i, j) = A(i, j)
+        \int_zero:N \l_tmpb_int
+        \int_while_do:nn { \l_tmpb_int < #5 }
+        {
+            \int_set:Nn \l_tmpc_int { \l_tmpa_int * (#5 + #6) + \l_tmpb_int + 1 }
+            \int_set:Nn \l_tmpd_int { \l_tmpa_int * #5 + \l_tmpb_int + 1 }
+            \fparray_gset:Nnn #3 { \l_tmpc_int } { \fparray_item:Nn #1 { \l_tmpd_int } }
+
+            \int_incr:N \l_tmpb_int
+        }
+
+        % C(i, j+m) = B(i, j)
+        \int_zero:N \l_tmpb_int
+        \int_while_do:nn { \l_tmpb_int < #6 }
+        {
+            \int_set:Nn \l_tmpc_int { \l_tmpa_int * (#5 + #6) + \l_tmpb_int + #5 + 1 }
+            \int_set:Nn \l_tmpd_int { \l_tmpa_int * #6 + \l_tmpb_int + 1 }
+            \fparray_gset:Nnn #3 { \l_tmpc_int } { \fparray_item:Nn #2 { \l_tmpd_int } }
+
+            \int_incr:N \l_tmpb_int
+        }
+        \int_incr:N \l_tmpa_int
+    }
+}
+
+% \matmul:NNNnnn {A}{B}{C}{n}{m}{r}
+% multiply two matrices
+% A: first operand (n x m)
+% B: second operand (m x r)
+% C: output matrix (n x r)
+\cs_new:Npn \matmul:NNNnnn #1 #2 #3 #4 #5 #6
+{
+    \fparray_gzero:N #3
+
+    \int_zero:N \l_tmpa_int
+    \int_while_do:nn { \l_tmpa_int < #4 }
+    {
+        \int_zero:N \l_tmpb_int
+        \int_while_do:nn { \l_tmpb_int < #6 }
+        {
+            \int_zero:N \l_tmpc_int
+            \int_while_do:nn { \l_tmpc_int < #5 }
+            {
+                % A(i, k)
+                \fp_set:Nn \l_tmpa_fp { \fparray_item:Nn #1 { \l_tmpa_int * #5 + \l_tmpc_int + 1 } }
+                % B(k, j)
+                \fp_set:Nn \l_tmpb_fp { \fparray_item:Nn #2 { \l_tmpc_int * #6 + \l_tmpb_int + 1 } }
+                % C(i, j)
+                \fp_set:Nn \l_tmpc_fp { \fparray_item:Nn #3 { \l_tmpa_int * #6 + \l_tmpb_int + 1 } }
+                % C(i, j) = A(i, k) * B(k, j) + C(i, j)
+                \fparray_gset:Nnn #3 { \l_tmpa_int * #6 + \l_tmpb_int + 1 } { \l_tmpa_fp * \l_tmpb_fp + \l_tmpc_fp }
+
+                \int_incr:N \l_tmpc_int
+            }
+            \int_incr:N \l_tmpb_int
+        }
+        \int_incr:N \l_tmpa_int
+    }
+}
+
+\fp_new:N \l_pivot_abs_fp
+\int_new:N \l_pivot_idx_int
+\int_new:N \l_csize_int
+
+% \matsolve:Nnn {C}{x}{n}
+% solve Ax = b
+% C: intput matrix; C = [A|b] (n x (n+1))
+% x: output vector (n x 1)
+\cs_new:Npn \matsolve:NNn #1 #2 #3
+{
+    \int_set:Nn \l_csize_int { #3 * (#3 + 1) }
+
+    \int_zero:N \l_tmpa_int
+    \int_while_do:nn { \l_tmpa_int < #3 }
+    {
+        % partial pivoting
+        \fp_set:Nn \l_pivot_abs_fp { -1 }
+        \int_set:Nn \l_pivot_idx_int { \l_tmpa_int - 1 }
+
+        \int_set:Nn \l_tmpb_int { \l_tmpa_int }
+        \int_while_do:nn { \l_tmpb_int < #3 }
+        {
+            \int_set:Nn \l_tmpc_int { \l_tmpb_int * (#3 + 1) + \l_tmpa_int + 1 }
+            \fp_set:Nn \l_tmpa_fp { abs( \fparray_item:Nn #1 { \l_tmpc_int } ) }
+            \fp_compare:nTF { \l_tmpa_fp >= \l_pivot_abs_fp }
+            {
+                \fp_set:Nn \l_pivot_abs_fp { \l_tmpa_fp }
+                \int_set:Nn \l_pivot_idx_int { \l_tmpb_int }
+            }
+            {}
+            \int_incr:N \l_tmpb_int
+        }
+
+        \int_set:Nn \l_tmpb_int { \l_tmpa_int }
+        \int_while_do:nn { \l_tmpb_int <= #3 }
+        {
+            \int_set:Nn \l_tmpc_int { \l_tmpa_int * (#3 + 1) + \l_tmpb_int + 1 }
+            \int_set:Nn \l_tmpd_int { \l_pivot_idx_int * (#3 + 1) + \l_tmpb_int + 1 }
+            \fparray_elemswap:Nnn #1 { \l_tmpc_int } { \l_tmpd_int }
+
+            \int_incr:N \l_tmpb_int
+        }
+
+        % subtract C(j, i)/C(i, i) times i-th row from the j-th row
+        \int_set:Nn \l_tmpb_int { \l_tmpa_int + 1 }
+        \int_while_do:nn { \l_tmpb_int < #3 }
+        {
+            \int_set:Nn \l_tmpc_int { \l_tmpb_int * (#3 + 1) + \l_tmpa_int + 1 }
+            \int_set:Nn \l_tmpd_int { \l_tmpa_int * (#3 + 1) + \l_tmpa_int + 1 }
+            \fp_set:Nn \l_tmpa_fp { \fparray_item:Nn #1 { \l_tmpc_int }  / \fparray_item:Nn #1 { \l_tmpd_int } }
+
+            \int_set:Nn \l_tmpc_int { \l_tmpa_int + 1 }
+            \int_while_do:nn { \l_tmpc_int <= #3 }
+            {
+                \int_set:Nn \l_tmpd_int { \l_tmpb_int * (#3 + 1) + \l_tmpc_int + 1 }
+                \int_set:Nn \l_tmpe_int { \l_tmpa_int * (#3 + 1) + \l_tmpc_int + 1 }
+                \fp_set:Nn \l_tmpb_fp { \fparray_item:Nn #1 { \l_tmpd_int } - \fparray_item:Nn #1 { \l_tmpe_int } * \l_tmpa_fp }
+                \fparray_gset:Nnn #1 { \l_tmpd_int } { \l_tmpb_fp }
+
+                \int_incr:N \l_tmpc_int
+            }
+            \int_incr:N \l_tmpb_int
+        }
+        \int_incr:N \l_tmpa_int
+    }
+
+    % back substitution
+    \int_set:Nn \l_tmpa_int { #3 - 1 }
+    \int_while_do:nn { \l_tmpa_int >= 0 }
+    {
+        \int_set:Nn \l_tmpc_int { \l_tmpa_int * (#3 + 1) + #3 + 1 }
+        \int_set:Nn \l_tmpd_int { \l_tmpa_int * (#3 + 1) + \l_tmpa_int + 1 }
+        \fp_set:Nn \l_tmpa_fp { \fparray_item:Nn #1 { \l_tmpc_int } / \fparray_item:Nn #1 { \l_tmpd_int } }
+        \int_set:Nn \l_tmpc_int { \l_tmpa_int + 1 }
+        \fparray_gset:Nnn #2 { \l_tmpc_int } { \l_tmpa_fp }
+
+        \int_set:Nn \l_tmpb_int { \l_tmpa_int - 1 }
+        \int_while_do:nn { \l_tmpb_int >= 0 }
+        {
+            \int_set:Nn \l_tmpc_int { \l_tmpb_int * (#3 + 1) + #3 + 1 }
+            \int_set:Nn \l_tmpd_int { \l_tmpb_int * (#3 + 1) + \l_tmpa_int + 1 }
+            \fp_set:Nn \l_tmpb_fp { \fparray_item:Nn #1 { \l_tmpc_int } - \l_tmpa_fp * \fparray_item:Nn #1 { \l_tmpd_int } }
+            \fparray_gset:Nnn #1 { \l_tmpc_int } { \l_tmpb_fp }
+
+            \int_decr:N \l_tmpb_int
+        }
+        \int_decr:N \l_tmpa_int
+    }
+}
+
+\cs_new:Npn \matprintarray_fn:Nnn #1 #2 #3
+{
+
+}
+
+% \matprintarray {A}{n}{m}
+% print matrix as array environment (use in mathmode)
+% A: matrix to print (n x m)
+\NewDocumentCommand \matprintarray { m m m }
+{
+    \tl_clear:N \l_tmpa_tl
+
+    \int_zero:N \l_tmpa_int
+    \int_while_do:nn { \l_tmpa_int < #2 }
+    {
+        \int_zero:N \l_tmpb_int
+        \int_while_do:nn { \l_tmpb_int < #3 }
+        {
+            \int_set:Nn \l_tmpc_int { \l_tmpa_int * #3 + \l_tmpb_int + 1 }
+            \tl_put_right:Nx \l_tmpa_tl { \fparray_item:Nn #1 { \l_tmpc_int } }
+
+            \int_compare:nTF { \l_tmpb_int != #3 - 1 }
+            {
+                \tl_put_right:Nn \l_tmpa_tl { \c_alignment_token }
+            }
+            {}
+
+            \int_incr:N \l_tmpb_int
+        }
+
+        \int_compare:nTF { \l_tmpa_int != #2 - 1 }
+        {
+            \tl_put_right:Nn \l_tmpa_tl { \tabularnewline }
+        }
+        {}
+
+        \int_incr:N \l_tmpa_int
+    }
+
+    \int_zero:N \l_tmpa_int
+    \int_while_do:nn { \l_tmpa_int < #3 }
+    {
+        \tl_put_right:Nn \l_tmpb_tl { r }
+        \int_incr:N \l_tmpa_int
+    }
+
+    \begin{array}{*{#3}{r}}
+        \l_tmpa_tl
+    \end{array}
+}
+
+\ExplSyntaxOff
+
+\begin{document}
+
+\ExplSyntaxOn
+
+% calculate
+%                        [  0  0  1  0 ]
+% [ -1 -3  0  2  0 ]     [  5  3  0  0 ]
+% [  0  4 -5  1  6 ]  X  [ -4  0 -1  2 ]
+% [ -1 -2  0  0  3 ]     [  0  7  7 -6 ]
+%                        [  1  3  0 -2 ]
+\fparray_from_clist:Nn \g_A_fparray {1, -3, 0, 2, 0,
+                                     0, 4, -5, 1, 6,
+                                     -1, -2, 0, 0, 3}
+\fparray_from_clist:Nn \g_B_fparray {0, 0, 1, 0,
+                                     5, 3, 0, 0,
+                                     -4, 0, -1, 2,
+                                     0, 7, 7, -6,
+                                     1, 3, 0, -2}
+\matmul:NNNnnn \g_A_fparray \g_B_fparray \g_C_fparray {3} {5} {4}
+
+\begin{equation}
+    \left[ \matprintarray{\g_A_fparray}{3}{5} \right]
+    \times
+    \left[ \matprintarray{\g_B_fparray}{5}{4} \right]
+    =
+    \left[ \matprintarray{\g_C_fparray}{3}{4} \right]
+\end{equation}
+
+% solve
+% [  1  2  5  1 ]        [ 4 ]
+% [  3 -4  3 -2 ]        [ 7 ]
+% [  4  3  2 -1 ]  X  =  [ 1 ]
+% [  1 -2 -4 -1 ]        [ 2 ]
+\fparray_from_clist:Nn \g_D_fparray {1, 2, 5, 1,
+                                     3, -4, 3, -2,
+                                     4, 3, 2, -1,
+                                     1, -2, -4, -1}
+\fparray_from_clist:Nn \g_E_fparray {4, 7, 1, 2}
+\mathstack:NNNnnn \g_D_fparray \g_E_fparray \g_F_fparray {4} {4} {1}
+\matsolve:NNn \g_F_fparray \g_x_fparray {4}
+
+\begin{equation}
+    \left[ \matprintarray{\g_D_fparray}{4}{4} \right]
+    \times
+    \left[ \matprintarray{\g_x_fparray}{4}{1} \right]
+    =
+    \left[ \matprintarray{\g_E_fparray}{4}{1} \right]
+\end{equation}
+
+\ExplSyntaxOff
+
+\end{document}
